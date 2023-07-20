@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using TareasMVC.Models;
 
@@ -11,11 +12,13 @@ namespace TareasMVC.Controllers
     {
         private readonly UserManager<IdentityUser> userManager;
         private readonly SignInManager<IdentityUser> signInManager;
+        private readonly ApplicationDbContext context;
 
-        public UsuariosController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager) 
+        public UsuariosController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, ApplicationDbContext context) 
         {
             this.userManager = userManager;
             this.signInManager = signInManager;
+            this.context = context;
         }
 
         [AllowAnonymous]
@@ -112,14 +115,14 @@ namespace TareasMVC.Controllers
             if(remoteError is not null)
             {
                 mensaje = $"Error del proveedor externo: {remoteError}";
-                return RedirectToAction("login", routeValues: new { mensaje, });
+                return RedirectToAction("login", routeValues: new { mensaje });
             }
 
             var info = await signInManager.GetExternalLoginInfoAsync();
             if (info is null)
             {
-                mensaje = $"Esta cargando la data de login externo";
-                return RedirectToAction("login", routeValues: new { mensaje, });
+                mensaje = $"Error cargando la data de login externo";
+                return RedirectToAction("login", routeValues: new { mensaje });
             }
 
             var resultadoLoginExterno = await signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, 
@@ -139,7 +142,7 @@ namespace TareasMVC.Controllers
             else
             {
                 mensaje = "Error leyendo el email del usuarios del proveedor";
-                return RedirectToAction("login", routeValues: new { mensaje, });
+                return RedirectToAction("login", routeValues: new { mensaje });
             }
 
             var usuario = new IdentityUser { Email = email, UserName = email };
@@ -163,6 +166,18 @@ namespace TareasMVC.Controllers
             return RedirectToAction("login", routeValues: new { mensaje });
         }
 
+        [HttpGet]
+        public async Task<IActionResult> Listado(string mensaje = null)
+        {
+            var usuarios = await context.Users.Select(u => new UsuarioViewModel
+            {
+                Email = u.Email
+            }).ToListAsync();
 
+            var modelo = new UsuariosListadoViewModel();
+            modelo.Usuarios = usuarios;
+            modelo.Mensaje = mensaje;
+            return View(modelo);
+        }
     }
 }
